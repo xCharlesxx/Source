@@ -9,18 +9,19 @@ class UNavMovementComponent;
 class UCharacterMovementComponent; 
 
 UCLASS()
-class UCPathFollowComponent : public UPathFollowingComponent
+class AICTP_API UCPathFollowComponent : public UPathFollowingComponent
 {
 	GENERATED_BODY()
-
+	UCPathFollowComponent(const FObjectInitializer& PCIP);
 protected:
 	UPROPERTY(transient)
-	UCharacterMovementComponent * CharacterMoveComp;
+	class UCharacterMovementComponent * CharacterMoveComp;
 
 public:	
-	UCPathFollowComponent(const FObjectInitializer& PCIP);
+	
 	// used to detect properties of a path's segment a character is about to follow
 	virtual void SetMoveSegment(int32 SegmentStartIndex) override;
 	// used to cache UCharacterMovementComponent we're using in SetMoveSegment implementation
 	virtual void SetMovementComponent(UNavMovementComponent* MoveComp) override;
+	
 };

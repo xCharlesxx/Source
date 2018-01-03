@@ -1,5 +1,6 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
+
 #include "CPathFollowComponent.h"
 #include "Navigation/PathFollowingComponent.h"
 #include "CUNavAreaJump.h"
@@ -12,13 +13,15 @@
 
  void UCPathFollowComponent::SetMovementComponent(UNavMovementComponent* MoveComp)
  {
+	 UE_LOG(LogTemp, Warning, TEXT("SetMovementComponent"));
 	 Super::SetMovementComponent(MoveComp);
 
 	 CharacterMoveComp = Cast<UCharacterMovementComponent>(MovementComp);
  }
-
+ 
  void UCPathFollowComponent::SetMoveSegment(int32 SegmentStartIndex)
  {
+	UE_LOG(LogTemp, Warning, TEXT("SetMoveSegment"));
 	Super::SetMoveSegment(SegmentStartIndex);
 	
 	if (CharacterMoveComp != NULL)
@@ -28,18 +31,20 @@
 		if (FNavAreaHelper::HasJumpFlag(SegmentStart))
 		{
 			// jump! well... fly-in-straight-line!
-			CharacterMoveComp->SetMovementMode(MOVE_Flying);
+			UE_LOG(LogTemp, Warning, TEXT("JUMPING"));
+			//CharacterMoveComp->SetMovementMode(MOVE_);
+			//CharacterMoveComp->JumpZVelocity = 800;
 			CharacterMoveComp->DoJump(true); 
+			//CharacterMoveComp->Launch(CharacterMoveComp->GetCurrentAcceleration());
 		}
 		else
 		{
 			// regular move
+			UE_LOG(LogTemp, Warning, TEXT("Walking"));
 			CharacterMoveComp->SetMovementMode(MOVE_Walking);
 		}
-	
 	}
  }
-
 
 
 // Sets default values for this component's properties
@@ -62,43 +67,6 @@
 //	
 //}
 //
-////Rama's UE4 Nav code to get all the nav polys!
-//bool AUCCPathFollowComponent::NavPoly_GetAllPolys(TArray<NavNodeRef>& Polys)
-//{
-//	if (!MovementComp) return false;
-//	//~~~~~~~~~~~~~~~~~~
-//
-//	//Get Nav Data
-//	const ANavigationData* NavData = CCGetNavData();
-//
-//	const ARecastNavMesh* NavMesh = Cast<ARecastNavMesh>(NavData);
-//	if (!NavMesh)
-//	{
-//		return false;
-//	}
-//
-//	TArray<FNavPoly> EachPolys;
-//	for (int32 v = 0; v < NavMesh->GetNavMeshTilesCount(); v++)
-//	{
-//
-//		//CHECK IS VALID FIRST OR WILL CRASH!!! 
-//		//     256 entries but only few are valid!
-//		// use continue in case the valid polys are not stored sequentially
-//		if (!TileIsValid(NavMesh, v))
-//		{
-//			continue;
-//		}
-//
-//		NavMesh->GetPolysInTile(v, EachPolys);
-//	}
-//
-//
-//	//Add them all!
-//	for (int32 v = 0; v < EachPolys.Num(); v++)
-//	{
-//		Polys.Add(EachPolys[v].Ref);
-//	}
-//}
 
 // Called every frame
 //void UCCPathFollowComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
