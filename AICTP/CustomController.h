@@ -2,8 +2,13 @@
 
 #pragma once
 #include "AIController.h"
+#include "CNode.h"
+#include "CMath.h"
+#include "CPathFollowComponent.h"
+#include "Ball.h"
 #include "CustomController.generated.h"
-
+static const int VERTS_PER_POLYGON = 6;
+static const unsigned int NULL_LINK = 0xffffffff;
 UCLASS()
 class ACustomController : public AAIController
 {
@@ -11,9 +16,41 @@ class ACustomController : public AAIController
 public:
 	ACustomController(const FObjectInitializer& PCIP); 
 	//virtual void FindPathForMoveRequest(const FAIMoveRequest& MoveRequest, FPathFindingQuery& Query, FNavPathSharedPtr& OutPath) const override;
-	virtual FAIRequestID RequestPathAndMove(const FAIMoveRequest& MoveRequest, FPathFindingQuery& Query) override;
-	FPathFindingResult FindPath(const FNavAgentProperties& AgentProperties, const FPathFindingQuery& Query);
-	bool PathFindingAlgorithm(FVector startLoc, FVector endLoc, FNavigationPath& result);
+	virtual void FindPathForMoveRequest(const FAIMoveRequest& MoveRequest, FPathFindingQuery& Query, FNavPathSharedPtr& OutPath) const override;
+	FPathFindingResult FindPath(const FPathFindingQuery& Query) const;
+	//const FNavAgentProperties& AgentProperties,
+private:
+	bool PathFindingAlgorithm(FVector startLoc, FVector endLoc, FNavigationPath& result) const;
+	void spawnBall(FVector loc, FColor colour) const; 
+	bool GetPolyNeighbors(NavNodeRef PolyID, TArray<CNode>& Neighbors) const;
+private: 
+	CNodePool * m_nodePool = new (malloc(sizeof(CNodePool))) CNodePool(100);		///< Pointer to node pool.
+	CNodeQueue* m_openList = new (malloc(sizeof(CNodeQueue))) CNodeQueue(100);     ///< Pointer to open list queue.
+	UStaticMeshComponent *sphere;	
+	UCPathFollowComponent *CPathFollowComp;
+	bool GetAllPolys(TArray<NavNodeRef>& Polys) const;
+
+	FORCEINLINE const ANavigationData* CGetNavData() const
+	{
+		const FNavAgentProperties& AgentProperties = GetNavAgentPropertiesRef(); 
+		const ANavigationData* NavData = GetWorld()->GetNavigationSystem()->GetNavDataForProps(AgentProperties);
+		if (NavData == NULL)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Error, Using main navData"));
+			NavData = GetWorld()->GetNavigationSystem()->GetMainNavData();
+		}
+
+		return NavData;
+	}
+
+	FORCEINLINE bool TileIsValid(const ARecastNavMesh* NavMesh, int32 TileIndex) const
+	{
+		if (!NavMesh) return false;
+		//~~~~~~~~~~~~~~
+		const FBox TileBounds = NavMesh->GetNavMeshTileBounds(TileIndex);
+
+		return TileBounds.IsValid != 0;
+	}
 };
 struct QueryData
 {
@@ -23,9 +60,42 @@ struct QueryData
 	float startPos[3], endPos[3];
 };
 
-QueryData m_query;				///< Sliced query state.
+struct CPoly
+{
+	/// Index to first link in linked list. (Or #NULL_LINK if there is no link.)
+	unsigned int firstLink;
 
-class NodePool* m_nodePool;		///< Pointer to node pool.
-class NodeQueue* m_openList;		///< Pointer to open list queue.
+	/// The indices of the polygon's vertices.
+	/// The actual vertices are located in dtMeshTile::verts.
+	unsigned short verts[VERTS_PER_POLYGON];
 
-int m_queryNodes;
+	/// Packed data representing neighbor polygons references and flags for each edge.
+	unsigned short neis[VERTS_PER_POLYGON];
+
+	/// The user defined polygon flags.
+	unsigned short flags;
+
+	/// The number of vertices in the polygon.
+	unsigned char vertCount;
+
+	/// The bit packed area id and polygon type.
+	/// @note Use the structure's set and get methods to acess this value.
+	unsigned char areaAndtype;
+
+	/// Sets the user defined area id. [Limit: < #MAX_AREAS]
+	inline void setArea(unsigned char a) { areaAndtype = (areaAndtype & 0xc0) | (a & 0x3f); }
+
+	/// Sets the polygon type. (See: #PolyTypes.)
+	inline void setType(unsigned char t) { areaAndtype = (areaAndtype & 0x3f) | (t << 6); }
+
+	/// Gets the user defined area id.
+	inline unsigned char getArea() const { return areaAndtype & 0x3f; }
+
+	/// Gets the polygon type. (See: #PolyTypes)
+	inline unsigned char getType() const { return areaAndtype >> 6; }
+};
+//QueryData m_query;				///< Sliced query state.
+
+
+
+//int m_queryNodes;

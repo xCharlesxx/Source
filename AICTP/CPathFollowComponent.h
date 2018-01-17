@@ -3,6 +3,8 @@
 #pragma once
 
 #include "Navigation/PathFollowingComponent.h"
+#include "Runtime/Engine/Classes/AI/Navigation/NavigationSystem.h"
+#include "Runtime/Engine/Classes/AI/Navigation/RecastNavMesh.h"
 #include "CPathFollowComponent.generated.h"
 
 class UNavMovementComponent; 
@@ -16,7 +18,8 @@ class AICTP_API UCPathFollowComponent : public UPathFollowingComponent
 protected:
 	UPROPERTY(transient)
 	class UCharacterMovementComponent * CharacterMoveComp;
-
+private: 
+	 
 public:	
 	
 	// used to detect properties of a path's segment a character is about to follow
@@ -25,3 +28,4 @@ public:
 	virtual void SetMovementComponent(UNavMovementComponent* MoveComp) override;
 	
 };
+
