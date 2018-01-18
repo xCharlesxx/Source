@@ -23,8 +23,10 @@ private:
 	bool PathFindingAlgorithm(FVector startLoc, FVector endLoc, FNavigationPath& result) const;
 	void spawnBall(FVector loc, FColor colour) const; 
 	bool GetPolyNeighbors(NavNodeRef PolyID, TArray<CNode>& Neighbors) const;
+	TArray<AActor*> GetActorsWithName(FString name, FString name2) const;
 private: 
-	CNodePool * m_nodePool = new (malloc(sizeof(CNodePool))) CNodePool(100);		///< Pointer to node pool.
+	//Set max nodes here
+	CNodePool * m_nodePool = new (malloc(sizeof(CNodePool))) CNodePool(1000);		///< Pointer to node pool.
 	CNodeQueue* m_openList = new (malloc(sizeof(CNodeQueue))) CNodeQueue(100);     ///< Pointer to open list queue.
 	UStaticMeshComponent *sphere;	
 	UCPathFollowComponent *CPathFollowComp;

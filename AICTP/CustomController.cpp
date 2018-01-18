@@ -5,6 +5,9 @@
 #include "CPathFollowComponent.h"
 #include "Engine/World.h"
 #include "Ball.h"
+#include "EngineUtils.h"
+#include "Runtime/Engine/Classes/Engine/StaticMeshActor.h"
+#include "Runtime/Engine/Classes/GameFramework/Character.h"
 #include "Runtime/Engine/Classes/AI/Navigation/NavigationSystem.h"
 #include "Runtime/Engine/Classes/AI/Navigation/RecastNavMesh.h"
 //#include "NavigationSystem.generated.h"
@@ -132,7 +135,6 @@
 	 startNode->parentId = 0; 
 	 startNode->cost = 0;
 	 startNode->total = Dist(&startLoc, &endLoc);
-	 startNode->flags = NODE_CLOSED;
 	 m_openList->push(startNode); 
 	 CNode* lastBestNode = startNode; 
 	 float lastBestNodeCost = startNode->total; 
@@ -146,86 +148,104 @@
 
 		 //Remove node from openlist and mark as closed 
 		 CNode* bestNode = m_openList->pop();
-		 bestNode->flags &= NODE_OPEN;
-		 bestNode->flags |= NODE_CLOSED; 
+		 //spawnBall(bestNode->pos, FColor().Blue);
+		 bestNode->flags = NODE_CLOSED;
 
 		 //Path has been found
 		 if (bestNode->id == finalPoly)
 		 {
 			 UE_LOG(LogTemp, Warning, TEXT("Path Has Been Found!"));
-			 lastBestNode = bestNode;
-			 pathPoints.Add(bestNode->pos);
+			 //lastBestNode = bestNode;
+			 TArray<FVector> path;
+			 while (bestNode->parentId)
+			 {
+				 path.Add(bestNode->pos);
+				 bestNode = bestNode->parentId;
+			 }
+			 //Reverse path
+			 for (int i = path.Num()-1; i >= 0; --i)
+			 {
+				 pathPoints.Add(path[i]);
+				 spawnBall(path[i], FColor().Blue);
+			 }
+			 //pathPoints.Add(bestNode->pos);
 			 pathPoints.Add(endLoc);
 			 break;
 		 }
 
-		 loopCounter++; 
+		 loopCounter++;
 
 		 //Incase infinite loop
 		 if (loopCounter >= loopLimit * 2)
 		 {
 			 UE_LOG(LogTemp, Warning, TEXT("Error: Loop Counter has exceeded normal limits"));
-			 break; 
+			 break;
 		 }
 
-		 const NavNodeRef bestRef = bestNode->id; 
-		 
-		 NavNodeRef parentRef = 0; 
+		 const NavNodeRef bestRef = bestNode->id;
+
+		 //NavNodeRef parentRef = 0; 
 		 //Set parentref if bestref has a parent
-		 if (bestNode->parentId)
-			 parentRef = m_nodePool->getNodeAtPoly(bestNode->parentId)->id; 
-		 
-		 bool hasFoundNextLink = false; 
-		 while (!hasFoundNextLink)
+		 //if (bestNode->parentId)
+			// parentRef = m_nodePool->getNodeAtPoly(bestNode->parentId)->id; 
+
+		 bool hasFoundNextLink = false;
+		 //while (!hasFoundNextLink)
+		// {
+		 TArray<CNode> temp;
+		 if (!GetPolyNeighbors(bestNode->id, temp))
+			 UE_LOG(LogTemp, Warning, TEXT("Error: Couldn't get PolyNeighbours"));
+		 TArray<CNode*> neighbours;
+		 for (int i = 0; i < temp.Num(); i++)
+			 neighbours.Add(m_nodePool->getNodeAtPoly(temp[i].id));
+		 //Make sure Neighbours are valid 
+		 for (int i = 0; i < neighbours.Num(); i++)
 		 {
-			 TArray<CNode> temp; 
-			 if (!GetPolyNeighbors(bestNode->id, temp))
-				 UE_LOG(LogTemp, Warning, TEXT("Error: Couldn't get PolyNeighbours"));
-			 TArray<CNode*> neighbours;
-			 for (int i = 0; i < temp.Num(); i++)
-				 neighbours.Add(m_nodePool->getNodeAtPoly(temp[i].id)); 
-			 //Make sure Neighbours are valid 
-			 for (int i = 0; i < neighbours.Num(); i++)
-				 if (!neighbours[i]->id || neighbours[i]->id == parentRef)
-					 neighbours.RemoveAt(i); 
-
-
-
-			 /*CNode* neighbourNode = m_nodePool->getNode(neighbours[0], true); 
-			 if (!neighbourNode)
-			 {
-				 UE_LOG(LogTemp, Warning, TEXT("Out of nodes"));
-				 continue; 
-			 }*/
-			 //create ball at position to show nav path finding 
-			 for (int i = 0; i < neighbours.Num(); i++)
-			 {
-				 CNode* nodeRef = m_nodePool->getNodeAtPoly(neighbours[i]->id);
-				
-				 if (nodeRef->flags == NODE_CLOSED)
-					 break; 
-				 if (nodeRef->flags != NODE_OPEN)
-				 {
-					 //Check if node is easier to traverse from this direction
-					 if (nodeRef->cost > Dist(&nodeRef->pos, &startLoc))
-						 nodeRef->cost = Dist(&nodeRef->pos, &startLoc);
-					 if (nodeRef->total > (nodeRef->cost + Dist(&nodeRef->pos, &endLoc)))
-						 nodeRef->total = nodeRef->cost + Dist(&nodeRef->pos, &endLoc);
-
-					 m_openList->modify(nodeRef); 
-				 }
-				 //If node has never been visited before
-				 else
-				 {
-					 nodeRef->cost = Dist(&nodeRef->pos, &startLoc);
-					 nodeRef->total = nodeRef->cost + Dist(&nodeRef->pos, &endLoc);
-					 m_openList->push(nodeRef);
-					 nodeRef->flags = NODE_OPEN; 
-				 }
-				 spawnBall(nodeRef->pos, FColor().Blue);
-			 }
-			 return true; 
+			 if (!neighbours[i]->id || neighbours[i] == bestNode->parentId)
+				 neighbours.RemoveAt(i);
+			 else if (neighbours[i]->parentId == 0)
+				 neighbours[i]->parentId = bestNode;
 		 }
+
+
+		 /*CNode* neighbourNode = m_nodePool->getNode(neighbours[0], true);
+		 if (!neighbourNode)
+		 {
+			 UE_LOG(LogTemp, Warning, TEXT("Out of nodes"));
+			 continue;
+		 }*/
+		 //create ball at position to show nav path finding 
+		 for (int i = 0; i < neighbours.Num(); i++)
+		 {
+			 CNode* nodeRef = m_nodePool->getNodeAtPoly(neighbours[i]->id);
+
+			 if (nodeRef->flags == NODE_CLOSED)
+				 break;
+			 if (nodeRef->flags == NODE_OPEN)
+			 {
+				 //Check if node is easier to traverse from this direction
+				 if (nodeRef->cost > Dist(&nodeRef->pos, &startLoc))
+					 nodeRef->cost = Dist(&nodeRef->pos, &startLoc);
+				 if (nodeRef->total > (nodeRef->cost + Dist(&nodeRef->pos, &endLoc)))
+				 {
+					 nodeRef->total = nodeRef->cost + Dist(&nodeRef->pos, &endLoc);
+					 nodeRef->parentId = bestNode;
+				 }
+
+				 m_openList->modify(nodeRef);
+			 }
+			 //If node has never been visited before
+			 else
+			 {
+				 nodeRef->cost = Dist(&nodeRef->pos, &startLoc);
+				 nodeRef->total = nodeRef->cost + Dist(&nodeRef->pos, &endLoc);
+				 m_openList->push(nodeRef);
+				 nodeRef->flags = NODE_OPEN;
+			 }
+			 //spawnBall(nodeRef->pos, FColor().Blue);
+		 }
+		 // hasFoundNextLink = true; 
+	//  }
 		 //return true; 
 	 }
 	 return true; 
@@ -261,17 +281,51 @@
 
 	 return true;
  }
-
+ TArray<AActor*> ACustomController::GetActorsWithName(FString staticMesh, FString skeletalMesh = "") const
+ {
+	 TArray<AActor*> result; 
+	 for (TActorIterator<AStaticMeshActor> ActorItr(GetWorld()); ActorItr; ++ActorItr)
+	 {
+		 // Same as with the Object Iterator, access the subclass instance with the * or -> operators.
+		 AStaticMeshActor *Mesh = *ActorItr;
+		 if (ActorItr->GetName().Contains(staticMesh))
+			 result.Add(*ActorItr); 
+	 }
+	 if (skeletalMesh != "")
+	 for (TActorIterator<ACharacter> ActorItr(GetWorld()); ActorItr; ++ActorItr)
+	 {
+		 // Same as with the Object Iterator, access the subclass instance with the * or -> operators.
+		 ACharacter *Mesh = *ActorItr;
+		 if (ActorItr->GetName().Contains(skeletalMesh))
+			 result.Add(*ActorItr);
+	 }
+	 return result; 
+ }
  bool ACustomController::GetPolyNeighbors(NavNodeRef PolyID, TArray<CNode>& Neighbors) const
  {
 	 float searchDistance = 1250; 
 	 TArray<NavNodeRef> polyPool;
 	 GetAllPolys(polyPool);
+	 auto hitOut = FHitResult(ForceInit);
+	 //Ignore floors when checking for interruptions
+	 TArray<AActor*> temp = GetActorsWithName("Floor", "Character");
+	 TArray<AActor*>& ActorsToIgnore = temp; 
+	 FCollisionQueryParams TraceParams(FName(TEXT("VictoryCore Trace")), true, ActorsToIgnore[0]);
+	 TraceParams.bTraceComplex = true;
+	 //Ignore Actors
+	 TraceParams.AddIgnoredActors(ActorsToIgnore);
 	 //Check distance between poly and all other polys and return closest
 	 for (int i = 0; i < polyPool.Num(); i++)
-		 if (Dist(&m_nodePool->getNodeAtPoly(polyPool[i])->pos, &m_nodePool->getNodeAtPoly(PolyID)->pos) < searchDistance)
-			 Neighbors.Add(*m_nodePool->getNodeAtPoly(polyPool[i]));
-
+		 //If within distance
+		 if ((Dist(&m_nodePool->getNodeAtPoly(polyPool[i])->pos, &m_nodePool->getNodeAtPoly(PolyID)->pos) < searchDistance))
+		 { //and nothing between points
+			 GetWorld()->LineTraceSingleByChannel(hitOut, m_nodePool->getNodeAtPoly(polyPool[i])->pos, m_nodePool->getNodeAtPoly(PolyID)->pos, ECC_Pawn, TraceParams);
+				 if (hitOut.GetActor() == NULL)
+					 //and not node making query
+					 if (polyPool[i] != PolyID)
+						 Neighbors.Add(*m_nodePool->getNodeAtPoly(polyPool[i]));
+		 }
+		
 	 if (Neighbors.Num() == 0)
 		 return false; 
 	/*const NavNodeRef PolyRef = static_cast<NavNodeRef>(PolyID);

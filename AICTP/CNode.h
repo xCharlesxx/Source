@@ -14,8 +14,8 @@ struct CNode
 	FVector pos; 
 	float cost;					///< Cost from previous node to current node.
 	float total;				///< Cost up to the node.
-	unsigned int parentId : 30;		///< Index to parent node.
-	unsigned int flags : 2;		///< Node flags 0/open/closed.
+	CNode* parentId;		///< Index to parent node.
+	unsigned int flags;		///< Node flags 0/open/closed.
 	polyRef id;				///< Polygon ref the node corresponds to.
 };
 class CNodePool
