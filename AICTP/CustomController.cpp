@@ -6,6 +6,7 @@
 #include "Engine/World.h"
 #include "Ball.h"
 #include "EngineUtils.h"
+#include "CUNavAreaJump.h"
 #include "Runtime/Engine/Classes/Engine/StaticMeshActor.h"
 #include "Runtime/Engine/Classes/GameFramework/Character.h"
 #include "Runtime/Engine/Classes/AI/Navigation/NavigationSystem.h"
@@ -49,7 +50,7 @@
 	 //{
 		// return ENavigationQueryResult::Error;
 	 //}
-
+	 DeleteAllBalls(); 
 	 FPathFindingResult Result(ENavigationQueryResult::Error);
 
 	 // create a new path if we need to, or reuse an existing one
@@ -72,15 +73,28 @@
 			 // run your pathfinding algorithm from Query.StartLocation to Query.EndLocation here,
 			 // adding each point on the path to NavPath->GetPathPoints()
 			 // the path must contain at least 2 points that aren't the start location
-			 
+			 //If there is a sizable jump between nodes, set IsPartial to true
+			 TArray<FNavPathPoint>& pathPoints = NavPath->GetPathPoints(); 
+			 //There will never be a jump command on the final node
+			 for (int i = 0; i < pathPoints.Num() - 2; ++i)
+			 {
+				 if (!FVector((pathPoints[i + 1].Location - pathPoints[i].Location).Z).IsNearlyZero(30))
+				 {
+					 pathPoints[i].Flags = ENavAreaFlag::Jump;
+					 UE_LOG(LogTemp, Warning, TEXT("Path Has Jump Node"));
+				 }
+				/* const ARecastNavMesh* navMesh = Cast<ARecastNavMesh>(NavData);
+				 FNavMeshNodeFlags* flags; 
+				 navMesh->GetPolyFlags(pathPoints[i].NodeRef, &flags); 
+				 flags->AddAreaFlags(ENavAreaFlag::Jump);*/
+			 }
 			 // if your algorithm can only find a partial path call NavPath->SetIsPartial(true)
 			 // and remember to check if Query.bAllowPartialPaths is set
 			 // if it isn't, you should return ENavigationQueryResult::Fail
-
 			 // and finally, remember to call this!
 			 NavPath->MarkReady();
-			 
-			 Result.Result = ENavigationQueryResult::Success;
+
+			Result.Result = ENavigationQueryResult::Success;
 		 }
 	 }
 
@@ -93,15 +107,18 @@
  {
 	 //Maybe store this in init 
 	// m_nodePool = new (malloc(sizeof(CNodePool))) CNodePool(m_maxNodes);
+	//Set max nodes here
+	 CNodePool * m_nodePool = new (malloc(sizeof(CNodePool))) CNodePool(1000);		///< Pointer to node pool.
+	 CNodeQueue* m_openList = new (malloc(sizeof(CNodeQueue))) CNodeQueue(1000);     ///< Pointer to open list queue.
 	 if (!m_nodePool)
-		 UE_LOG(LogTemp, Warning, TEXT("Error: Out of Memory"));
+		 UE_LOG(LogTemp, Error, TEXT("Error: Out of Memory"));
 
 	 UE_LOG(LogTemp, Warning, TEXT("Entered PathFindingAlgorithm"));
 	 auto world = GetWorld();
 	 auto navSystem = world->GetNavigationSystem();
 	 auto navData = navSystem->GetMainNavData(FNavigationSystem::DontCreate);
 	 const ARecastNavMesh* navMesh = Cast<ARecastNavMesh>(navData);
-	 FNavMeshNodeFlags flags = navMesh->GetFlags(); 
+	 FNavMeshNodeFlags flags = navMesh->GetFlags();
 	 auto loc = startLoc;
 	 /*GetControlledPawn();*/
 	 auto extent = FVector(100.0f, 100.0f, 100.0f);
@@ -112,11 +129,11 @@
 	 //ABall * balls[50];
 	 for (int i = 0; i < polyPool.Num(); i++)
 	 {
-		 FVector center; 
+		 FVector center;
 		 navMesh->GetPolyCenter(polyPool[i], center);
-		// spawnBall(center, FColor().Blue); 
-		 m_nodePool->getNode(polyPool[i], true); 
-		 m_nodePool->getNodeAtPoly(polyPool[i])->pos = center; 
+		 // spawnBall(center, FColor().Blue); 
+		 m_nodePool->getNode(polyPool[i], true);
+		 m_nodePool->getNodeAtPoly(polyPool[i])->pos = center;
 		 //FActorSpawnParameters spawnInfo;
 		 //spawnInfo.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 		 //ABall* ball = GetWorld()->SpawnActor<ABall>(ABall::StaticClass(), FTransform(FVector(center.X, center.Y + 5, center.Z)), spawnInfo);
@@ -124,49 +141,64 @@
 		 //ball->Colour(FColor::Blue);
 		 //balls[i] = ball; 
 	 }
-	 TArray<FNavPathPoint>& pathPoints = path.GetPathPoints(); 
-	 pathPoints.Empty(); 
+	 TArray<FNavPathPoint>& pathPoints = path.GetPathPoints();
+	 pathPoints.Empty();
 	 pathPoints.Add(startLoc);
-	// navMesh->GetPolyFlags(areaID, flags);
-	 //getNode = true FindNode = false; 
+	 // navMesh->GetPolyFlags(areaID, flags);
+	  //getNode = true FindNode = false; 
 
-	 CNode* startNode = m_nodePool->getNode(startRef, true);  
-	 startNode->pos = startLoc; 
-	 startNode->parentId = 0; 
+	 CNode* startNode = m_nodePool->getNode(startRef, true);
+	 startNode->pos = startLoc;
+	 startNode->parentId = 0;
 	 startNode->cost = 0;
 	 startNode->total = Dist(&startLoc, &endLoc);
-	 m_openList->push(startNode); 
-	 CNode* lastBestNode = startNode; 
-	 float lastBestNodeCost = startNode->total; 
-	 const int loopLimit = m_nodePool->getMaxNodes() + 1; 
-	 bool pathFound = false; 
+	 m_openList->push(startNode);
+	 CNode* lastBestNode = startNode;
+	 float lastBestNodeCost = startNode->total;
+	 const int loopLimit = m_nodePool->getMaxNodes() + 1;
+	 bool pathFound = false;
 	 int loopCounter = 0;
 	 NavNodeRef finalPoly = navMesh->FindNearestPoly(endLoc, extent, navData->GetDefaultQueryFilter());
+	 FVector up = FVector::ZeroVector;
 	 while (!m_openList->empty())
 	 {
 		 //break;
-
+		 //Add(&up, &FVector(0, 1, 0), &up);
+		 up.Z++;
+		 up.Z++;
+		 up.Z++;
+		 up.Z++;
 		 //Remove node from openlist and mark as closed 
 		 CNode* bestNode = m_openList->pop();
-		 //spawnBall(bestNode->pos, FColor().Blue);
+		 FVector ballpos;
+		 Add(&ballpos, &bestNode->pos, &up);
+		 spawnBall(ballpos, FColor().Blue);
 		 bestNode->flags = NODE_CLOSED;
 
 		 //Path has been found
 		 if (bestNode->id == finalPoly)
 		 {
 			 UE_LOG(LogTemp, Warning, TEXT("Path Has Been Found!"));
-			 //lastBestNode = bestNode;
-			 TArray<FVector> path;
+			  DeleteAllBalls();
+			  //lastBestNode = bestNode;
+			 TArray<FVector> tempPath;
 			 while (bestNode->parentId)
 			 {
-				 path.Add(bestNode->pos);
+				 tempPath.Add(bestNode->pos);
+				 //path[2].
 				 bestNode = bestNode->parentId;
 			 }
 			 //Reverse path
-			 for (int i = path.Num()-1; i >= 0; --i)
+			 FVector average; 
+			 for (int i = tempPath.Num() - 1; i >= 0; --i)
 			 {
-				 pathPoints.Add(path[i]);
-				 spawnBall(path[i], FColor().Blue);
+				 pathPoints.Add(tempPath[i]);
+				// average += path[i]; 
+				 //if ((!FVector(path[i] - path[i + 1]).Z).IsNearlyZero(30))
+				 //{
+					// 
+     //            }
+				 spawnBall(tempPath[i], FColor().Blue);
 			 }
 			 //pathPoints.Add(bestNode->pos);
 			 pathPoints.Add(endLoc);
@@ -178,7 +210,7 @@
 		 //Incase infinite loop
 		 if (loopCounter >= loopLimit * 2)
 		 {
-			 UE_LOG(LogTemp, Warning, TEXT("Error: Loop Counter has exceeded normal limits"));
+			 UE_LOG(LogTemp, Error, TEXT("Error: Loop Counter has exceeded normal limits"));
 			 break;
 		 }
 
@@ -193,8 +225,8 @@
 		 //while (!hasFoundNextLink)
 		// {
 		 TArray<CNode> temp;
-		 if (!GetPolyNeighbors(bestNode->id, temp))
-			 UE_LOG(LogTemp, Warning, TEXT("Error: Couldn't get PolyNeighbours"));
+		 if (!GetPolyNeighbors(bestNode->id, temp, m_nodePool))
+			 UE_LOG(LogTemp, Error, TEXT("Error: Couldn't get PolyNeighbours"));
 		 TArray<CNode*> neighbours;
 		 for (int i = 0; i < temp.Num(); i++)
 			 neighbours.Add(m_nodePool->getNodeAtPoly(temp[i].id));
@@ -248,6 +280,8 @@
 	//  }
 		 //return true; 
 	 }
+	 if (m_openList->empty())
+		 UE_LOG(LogTemp, Error, TEXT("No Path Found"));
 	 return true; 
  }
 
@@ -301,13 +335,20 @@
 	 }
 	 return result; 
  }
- bool ACustomController::GetPolyNeighbors(NavNodeRef PolyID, TArray<CNode>& Neighbors) const
+
+ void ACustomController::DeleteAllBalls() const
  {
-	 float searchDistance = 1250; 
+	 for (TActorIterator<ABall> ActorItr(GetWorld()); ActorItr; ++ActorItr)
+		 ActorItr->Destroy(); 
+ }
+
+ bool ACustomController::GetPolyNeighbors(NavNodeRef PolyID, TArray<CNode>& Neighbors, CNodePool* m_nodePool) const
+ {
+	 float searchDistance = 1000; 
 	 TArray<NavNodeRef> polyPool;
 	 GetAllPolys(polyPool);
 	 auto hitOut = FHitResult(ForceInit);
-	 //Ignore floors when checking for interruptions
+	 //Ignore floors and characters when checking for interruptions
 	 TArray<AActor*> temp = GetActorsWithName("Floor", "Character");
 	 TArray<AActor*>& ActorsToIgnore = temp; 
 	 FCollisionQueryParams TraceParams(FName(TEXT("VictoryCore Trace")), true, ActorsToIgnore[0]);
@@ -320,7 +361,7 @@
 		 if ((Dist(&m_nodePool->getNodeAtPoly(polyPool[i])->pos, &m_nodePool->getNodeAtPoly(PolyID)->pos) < searchDistance))
 		 { //and nothing between points
 			 GetWorld()->LineTraceSingleByChannel(hitOut, m_nodePool->getNodeAtPoly(polyPool[i])->pos, m_nodePool->getNodeAtPoly(PolyID)->pos, ECC_Pawn, TraceParams);
-				 if (hitOut.GetActor() == NULL)
+			 if (hitOut.GetActor() == NULL || !FVector((m_nodePool->getNodeAtPoly(polyPool[i])->pos - m_nodePool->getNodeAtPoly(PolyID)->pos).Z).IsNearlyZero(30)) 
 					 //and not node making query
 					 if (polyPool[i] != PolyID)
 						 Neighbors.Add(*m_nodePool->getNodeAtPoly(polyPool[i]));
@@ -382,13 +423,14 @@
 
  void ACustomController::FindPathForMoveRequest(const FAIMoveRequest & MoveRequest, FPathFindingQuery & Query, FNavPathSharedPtr & OutPath) const
  {
-	 FPathFindingResult r = this->FindPath(Query);
+	 
 	 SCOPE_CYCLE_COUNTER(STAT_AI_Overall);
 
 	 UNavigationSystem* NavSys = UNavigationSystem::GetCurrent(GetWorld());
 	 if (NavSys)
 	 {
-		 FPathFindingResult PathResult = NavSys->FindPathSync(Query);
+		 FPathFindingResult PathResult = FindPath(Query);
+		 //FPathFindingResult PathResult = NavSys->FindPathSync(Query);
 		 if (PathResult.Result != ENavigationQueryResult::Error)
 		 {
 			 if (PathResult.IsSuccessful() && PathResult.Path.IsValid())

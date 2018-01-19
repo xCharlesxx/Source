@@ -22,10 +22,13 @@ private:
 	 
 public:	
 	
-	// used to detect properties of a path's segment a character is about to follow
+	/** sets variables related to current move segment */
 	virtual void SetMoveSegment(int32 SegmentStartIndex) override;
 	// used to cache UCharacterMovementComponent we're using in SetMoveSegment implementation
 	virtual void SetMovementComponent(UNavMovementComponent* MoveComp) override;
-	
+	/** follow current path segment */
+	virtual void FollowPathSegment(float DeltaTime) override; 
+	/** check state of path following, update move segment if needed */
+	virtual void UpdatePathSegment() override; 
 };
 

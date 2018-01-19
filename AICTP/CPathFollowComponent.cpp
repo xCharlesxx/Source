@@ -4,6 +4,7 @@
 #include "CPathFollowComponent.h"
 #include "Navigation/PathFollowingComponent.h"
 #include "CUNavAreaJump.h"
+#include "CMath.h"
 #include "GameFramework/CharacterMovementComponent.h"
 
  UCPathFollowComponent::UCPathFollowComponent(const FObjectInitializer& PCIP) : Super(PCIP)
@@ -18,6 +19,44 @@
 
 	 CharacterMoveComp = Cast<UCharacterMovementComponent>(MovementComp);
  }
+
+ void UCPathFollowComponent::FollowPathSegment(float DeltaTime)
+ {
+	 ////Pointer Safety Checks
+	 //if (MovementComp == NULL || !Path.IsValid())
+	 //{
+		// return;
+	 //}
+	 ////~~~~~~~~~~~~~~~~~~~~~~~~~
+	 ////~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	 ////Use Jump/Fall Pathing?
+	 ////~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	 //if (Path->IsPartial()) //AI could not reach player, try using jump pathing!
+	 //{
+		// //I send out instructions to my custom character class here
+		//// customController->ReceiveJumpFallPathingRequest();
+
+		// return;
+		// //~~~
+	 //}
+	 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	 //Proceed normally (no jump pathing)
+	 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	 Super::FollowPathSegment(DeltaTime);
+ }
+
+ void UCPathFollowComponent::UpdatePathSegment()
+ {
+	 Super::UpdatePathSegment();
+	 //if (Path->IsPartial()) //AI could not reach player, try using jump pathing!
+	 //{
+		// //I send out instructions to my custom character class here
+		// // customController->ReceiveJumpFallPathingRequest();
+		// //Path.
+		//// return;
+		// //~~~
+	 //} 
+ }
  
  void UCPathFollowComponent::SetMoveSegment(int32 SegmentStartIndex)
  {
@@ -27,14 +66,17 @@
 	if (CharacterMoveComp != NULL)
 	{
 		const FNavPathPoint& SegmentStart = Path->GetPathPoints()[MoveSegmentStartIndex];
-
+		//If node has Jump flag then jump
 		if (FNavAreaHelper::HasJumpFlag(SegmentStart))
 		{
-			// jump! well... fly-in-straight-line!
 			UE_LOG(LogTemp, Warning, TEXT("JUMPING"));
 			//CharacterMoveComp->SetMovementMode(MOVE_);
-			//CharacterMoveComp->JumpZVelocity = 800;
+			float distanceUp = Path->GetPathPoints()[MoveSegmentStartIndex + 1].Location.Z - SegmentStart.Location.Z;
+			float distanceForward = Dist(&Path->GetPathPoints()[MoveSegmentStartIndex + 1].Location, &SegmentStart.Location);
+			CharacterMoveComp->JumpZVelocity = distanceForward + (distanceUp * 2.5);
 			CharacterMoveComp->DoJump(true); 
+			UE_LOG(LogTemp, Warning, TEXT("Distance: %"), distanceForward);
+			UE_LOG(LogTemp, Warning, TEXT("Height: %"), distanceUp);
 			//CharacterMoveComp->Launch(CharacterMoveComp->GetCurrentAcceleration());
 		}
 		else
