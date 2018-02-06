@@ -22,7 +22,7 @@ public:
 private:
 	bool PathFindingAlgorithm(FVector startLoc, FVector endLoc, FNavigationPath& result) const;
 	void spawnBall(FVector loc, FColor colour) const; 
-	bool GetPolyNeighbors(NavNodeRef PolyID, TArray<CNode>& Neighbors, CNodePool* m_nodePool) const;
+	bool GetPolyNeighbors(NavNodeRef PolyID, TArray<CNode*>& Neighbors, CNodePool* m_nodePool) const;
 	TArray<AActor*> GetActorsWithName(FString name, FString name2) const;
 	void DeleteAllBalls() const; 
 private: 

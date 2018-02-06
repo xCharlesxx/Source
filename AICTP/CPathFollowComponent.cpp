@@ -73,10 +73,10 @@
 			//CharacterMoveComp->SetMovementMode(MOVE_);
 			float distanceUp = Path->GetPathPoints()[MoveSegmentStartIndex + 1].Location.Z - SegmentStart.Location.Z;
 			float distanceForward = Dist(&Path->GetPathPoints()[MoveSegmentStartIndex + 1].Location, &SegmentStart.Location);
-			CharacterMoveComp->JumpZVelocity = distanceForward + (distanceUp * 2.5);
+			CharacterMoveComp->JumpZVelocity = distanceForward + (distanceUp * 1.75); 
 			CharacterMoveComp->DoJump(true); 
-			UE_LOG(LogTemp, Warning, TEXT("Distance: %"), distanceForward);
-			UE_LOG(LogTemp, Warning, TEXT("Height: %"), distanceUp);
+			UE_LOG(LogTemp, Warning, TEXT("Distance: %."), distanceForward);
+			UE_LOG(LogTemp, Warning, TEXT("Height: %."), distanceUp);
 			//CharacterMoveComp->Launch(CharacterMoveComp->GetCurrentAcceleration());
 		}
 		else
