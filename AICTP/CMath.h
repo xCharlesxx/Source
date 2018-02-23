@@ -30,6 +30,17 @@ inline void Add(FVector* dest, const FVector* v1, const FVector* v2)
 	dest->Z = v1->Z + v2->Z;
 }
 
+inline FVector CalculateVectorBetweenPoints2D(const float speed, const FVector start, const FVector end)
+{
+	float dirX = end.X - start.X; 
+	float dirY = end.Y - start.Y; 
+	float distance = sqrt(pow(dirX, 2.0) + pow(dirY, 2.0)); 
+	float time = speed / distance; 
+	float velX = dirX * time; 
+	float velY = dirX * time; 
+	return FVector(velX,velY,0); 
+}
+
 /// Performs a vector subtraction. (@p v1 - @p v2)
 ///  @param[out]	dest	The result vector. [(x, y, z)]
 ///  @param[in]		v1		The base vector. [(x, y, z)]

@@ -73,8 +73,10 @@
 			//CharacterMoveComp->SetMovementMode(MOVE_);
 			float distanceUp = Path->GetPathPoints()[MoveSegmentStartIndex + 1].Location.Z - SegmentStart.Location.Z;
 			float distanceForward = Dist(&Path->GetPathPoints()[MoveSegmentStartIndex + 1].Location, &SegmentStart.Location);
-			CharacterMoveComp->JumpZVelocity = distanceForward + (distanceUp * 1.75); 
-			CharacterMoveComp->DoJump(true); 
+			CharacterMoveComp->JumpZVelocity = (distanceForward + distanceUp) * 1.75; 
+			CharacterMoveComp->Velocity = CalculateVectorBetweenPoints2D(CharacterMoveComp->GetMaxSpeed(), Path->GetPathPoints()[MoveSegmentStartIndex].Location, Path->GetPathPoints()[MoveSegmentStartIndex + 1].Location);
+			CharacterMoveComp->AirControl = 1; 
+			CharacterMoveComp->DoJump(true);
 			UE_LOG(LogTemp, Warning, TEXT("Distance: %."), distanceForward);
 			UE_LOG(LogTemp, Warning, TEXT("Height: %."), distanceUp);
 			//CharacterMoveComp->Launch(CharacterMoveComp->GetCurrentAcceleration());
@@ -87,6 +89,8 @@
 		}
 	}
  }
+
+
 
 
 // Sets default values for this component's properties

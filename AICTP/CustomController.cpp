@@ -11,7 +11,6 @@
 #include "Runtime/Engine/Classes/GameFramework/Character.h"
 #include "Runtime/Engine/Classes/AI/Navigation/NavigationSystem.h"
 #include "Runtime/Engine/Classes/AI/Navigation/RecastNavMesh.h"
-//#include "NavigationSystem.generated.h"
 
  ACustomController::ACustomController(const FObjectInitializer& PCIP) : Super(PCIP.SetDefaultSubobjectClass<UCPathFollowComponent>(TEXT("PathFollowingComponent")))
  {
@@ -61,8 +60,6 @@
 
 	 return Result;
  }
-
-
 
  bool ACustomController::PathFindingAlgorithm(FVector startLoc, FVector endLoc, FNavigationPath& path) const
  {
@@ -232,6 +229,38 @@
 	 return true; 
  }
 
+ void ACustomController::FindPathForMoveRequest(const FAIMoveRequest & MoveRequest, FPathFindingQuery & Query, FNavPathSharedPtr & OutPath) const
+ {
+	 SCOPE_CYCLE_COUNTER(STAT_AI_Overall);
+
+	 UNavigationSystem* NavSys = UNavigationSystem::GetCurrent(GetWorld());
+	 if (NavSys)
+	 {
+		 FPathFindingResult PathResult = FindPath(Query);
+		 //FPathFindingResult PathResult = NavSys->FindPathSync(Query);
+		 if (PathResult.Result != ENavigationQueryResult::Error)
+		 {
+			 if (PathResult.IsSuccessful() && PathResult.Path.IsValid())
+			 {
+				 if (MoveRequest.IsMoveToActorRequest())
+				 {
+					 PathResult.Path->SetGoalActorObservation(*MoveRequest.GetGoalActor(), 100.0f);
+				 }
+
+				 PathResult.Path->EnableRecalculationOnInvalidation(true);
+				 OutPath = PathResult.Path;
+			 }
+		 }
+		 else
+		 {
+			 /* UE_VLOG(this, LogAINavigation, Error, TEXT("Trying to find path to %s resulted in Error")
+			 , MoveRequest.IsMoveToActorRequest() ? *GetNameSafe(MoveRequest.GetGoalActor()) : *MoveRequest.GetGoalLocation().ToString());
+			 UE_VLOG_SEGMENT(this, LogAINavigation, Error, GetPawn() ? GetPawn()->GetActorLocation() : FAISystem::InvalidLocation
+			 , MoveRequest.GetGoalLocation(), FColor::Red, TEXT("Failed move to %s"), *GetNameSafe(MoveRequest.GetGoalActor()));*/
+		 }
+	 }
+ }
+
  bool ACustomController::GetAllPolys(TArray<NavNodeRef>& Polys) const
  {
 	 //Get Nav Data
@@ -261,6 +290,7 @@
 
 	 return true;
  }
+
  TArray<AActor*> ACustomController::GetActorsWithName(FString staticMesh, FString skeletalMesh = "") const
  {
 	 TArray<AActor*> result; 
@@ -280,6 +310,16 @@
 			 result.Add(*ActorItr);
 	 }
 	 return result; 
+ }
+
+ void ACustomController::spawnBall(FVector loc, FColor colour) const
+ {
+	 // FActorSpawnParameters spawnInfo;
+	 // spawnInfo.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	 UE_LOG(LogTemp, Warning, TEXT("Spawned Sphere"));
+	 ABall* ball = GetWorld()->SpawnActorDeferred<ABall>(ABall::StaticClass(), FTransform(FVector(loc.X, loc.Y + 5, loc.Z)));
+	 ball->Colour(colour);
+	 ball->FinishSpawning(FTransform(FVector(loc.X, loc.Y + 5, loc.Z)));
  }
 
  void ACustomController::DeleteAllBalls() const
@@ -322,50 +362,6 @@
 		 return false; 
 
 	return true;
- }
-
-
- void ACustomController::spawnBall(FVector loc, FColor colour) const
- {
-	// FActorSpawnParameters spawnInfo;
-	// spawnInfo.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-	 UE_LOG(LogTemp, Warning, TEXT("Spawned Sphere"));
-	 ABall* ball = GetWorld()->SpawnActorDeferred<ABall>(ABall::StaticClass(), FTransform(FVector(loc.X, loc.Y + 5, loc.Z)));
-	 ball->Colour(colour); 
-	 ball->FinishSpawning(FTransform(FVector(loc.X, loc.Y + 5, loc.Z)));
- }
-
-
- void ACustomController::FindPathForMoveRequest(const FAIMoveRequest & MoveRequest, FPathFindingQuery & Query, FNavPathSharedPtr & OutPath) const
- {
-	 SCOPE_CYCLE_COUNTER(STAT_AI_Overall);
-
-	 UNavigationSystem* NavSys = UNavigationSystem::GetCurrent(GetWorld());
-	 if (NavSys)
-	 {
-		 FPathFindingResult PathResult = FindPath(Query);
-		 //FPathFindingResult PathResult = NavSys->FindPathSync(Query);
-		 if (PathResult.Result != ENavigationQueryResult::Error)
-		 {
-			 if (PathResult.IsSuccessful() && PathResult.Path.IsValid())
-			 {
-				 if (MoveRequest.IsMoveToActorRequest())
-				 {
-					 PathResult.Path->SetGoalActorObservation(*MoveRequest.GetGoalActor(), 100.0f);
-				 }
-
-				 PathResult.Path->EnableRecalculationOnInvalidation(true);
-				 OutPath = PathResult.Path;
-			 }
-		 }
-		 else
-		 {
-			/* UE_VLOG(this, LogAINavigation, Error, TEXT("Trying to find path to %s resulted in Error")
-				 , MoveRequest.IsMoveToActorRequest() ? *GetNameSafe(MoveRequest.GetGoalActor()) : *MoveRequest.GetGoalLocation().ToString());
-			 UE_VLOG_SEGMENT(this, LogAINavigation, Error, GetPawn() ? GetPawn()->GetActorLocation() : FAISystem::InvalidLocation
-				 , MoveRequest.GetGoalLocation(), FColor::Red, TEXT("Failed move to %s"), *GetNameSafe(MoveRequest.GetGoalActor()));*/
-		 }
-	 }
  }
 
 
